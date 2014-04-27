@@ -27,7 +27,7 @@ sig Attribute {
 	driven:  Attribute lone -> Time
 }
 sig Value {}
-sig DefaultValue extends Value {}  //All nodes will start with DefaultValue
+one sig DefaultValue extends Value {}  //All nodes will start with DefaultValue
 
 //model connection as (node->attribute)->(node-)
 
@@ -92,7 +92,10 @@ pred noNodeIdChangeExcept[t, t': Time, n: Node] {
 	all n: Node-n | n.id.t = n.id.t'
 }
 
-pred noConnectionsChangeExcept[t, t': Time, a: Attribute] {
+/*
+Changed this to take in a set so we can include both attributes
+*/
+pred noConnectionsChangeExcept[t, t': Time, a: set Attribute] {
 	all b: Attribute-a | 
 		b.driven.t = b.driven.t' and
 		b.driving.t = b.driving.t'
@@ -105,4 +108,38 @@ pred noNodesCreatedExcept[t, t': Time, n: Node] {
 pred noNodesDestroyedExcept[t, t': Time, n: Node] {
 	Network.nodes.t = Network.nodes.t' - n
 }
+
+pred createNode[t, t': Time, n: Node] {
+	noNodesCreatedExcept[t, t', n]
+	noConnectionsChangeExcept[t, t', none]
+	noNodeIdChangeExcept[t, t', none]
+}
+
+pred deleteNode[t, t': Time, n: Node] {
+	noNodesDestroyedExcept[t, t', n]
+	noConnectionsChangeExcept[t, t', none]
+	noNodeIdChangeExcept[t, t', none]
+}
+
+pred breakConnection[t, t': Time, a, a': Attribute] {
+	a.driving.t' = a.driving.t - a'
+	a'.driven.t' = none
+	a'.value.t' = DefaultValue
+	noNodesCreatedExcept[t, t', none]
+	noNodesDestroyedExcept[t, t', none]
+	noConnectionsChangeExcept[t, t', a + a']
+	noNodeIdChangeExcept[t, t', none]
+}
+
+pred makeConnection[t, t': Time, a, a': Attribute] {
+	a.driving.t' = a.driving.t ++ a'
+	a'.driven.t'.driving.t' = a'.driven.t.driving.t - a'  --wow
+	a'.driven.t' = a
+	noNodesCreatedExcept[t, t', none]
+	noNodesDestroyedExcept[t, t', none]
+	noConnectionsChangeExcept[t, t', a + a']
+	noNodeIdChangeExcept[t, t', none]
+}
+	
+
 
