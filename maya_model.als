@@ -31,7 +31,7 @@ one sig DefaultValue extends Value {}  //All nodes will start with DefaultValue
 
 //model connection as (node->attribute)->(node-)
 
-run {} for 4
+run {} 
 
 // Assert every Node has some attribute
 assert nonEmptyAttributes {all n: Node | some a:Attribute | a in n.attributes}
@@ -68,6 +68,7 @@ pred init [t: Time] {
  * Rename
  */
 
+/*
 fact traces {
 	init [first]
 	all t: Time - last | let t' = t.next {
@@ -78,7 +79,7 @@ fact traces {
 			or createNode[t, t', n]
 			or rename[t, t', n, i]
 	}
-}
+}*/
 
 pred rename[t, t': Time, n: Node, i: Id] {
 	n.id.t' = i
@@ -89,7 +90,7 @@ pred rename[t, t': Time, n: Node, i: Id] {
 }
 
 pred noNodeIdChangeExcept[t, t': Time, n: Node] {
-	all n: Node-n | n.id.t = n.id.t'
+	all n1: Node-n | n1.id.t = n1.id.t'
 }
 
 /*
@@ -106,16 +107,18 @@ pred noNodesCreatedExcept[t, t': Time, n: Node] {
 }
 
 pred noNodesDestroyedExcept[t, t': Time, n: Node] {
-	Network.nodes.t = Network.nodes.t' - n
+	Network.nodes.t' = Network.nodes.t - n
 }
 
 pred createNode[t, t': Time, n: Node] {
+	Network.nodes.t' = Network.nodes.t ++ n
 	noNodesCreatedExcept[t, t', n]
 	noConnectionsChangeExcept[t, t', none]
 	noNodeIdChangeExcept[t, t', none]
 }
 
 pred deleteNode[t, t': Time, n: Node] {
+	Network.nodes.t' = Network.nodes.t - n
 	noNodesDestroyedExcept[t, t', n]
 	noConnectionsChangeExcept[t, t', none]
 	noNodeIdChangeExcept[t, t', none]
