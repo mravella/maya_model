@@ -2,6 +2,8 @@ open util/ordering[Time]
 
 one sig Network {
 	nodes: set Node -> Time
+} {
+	all n: Node | all t: Time | n in nodes.t --All nodes are in the network.  This isn't right, but I don't really know what to do.
 }
 
 sig Time {}
@@ -33,11 +35,11 @@ one sig DefaultValue extends Value {}  //All nodes will start with DefaultValue
 
 run {} 
 
-// Assert every Node has some attribute
-assert nonEmptyAttributes {all n: Node | some a:Attribute | a in n.attributes}
-check nonEmptyAttributes for 5 
-
 //all x: Node.attributes.driving | 
+
+fact noSharedId {  --NEW
+	all n, n': Node | all t: Time | n.id.t = n'.id.t implies n = n'
+}
 
 fact connectionsMatchTypes {
 	all t: Time | all a: Attribute | a.type.t = a.driven.t.type.t
@@ -144,5 +146,26 @@ pred makeConnection[t, t': Time, a, a': Attribute] {
 	noNodeIdChangeExcept[t, t', none]
 }
 	
+
+// Checks every Node has some attribute
+assert nonEmptyAttributes {
+	all n: Node | some a:Attribute | a in n.attributes
+} check nonEmptyAttributes for 5 
+
+// Checks that types of attributes don't change over time
+assert noTypeChange {
+	all a: Attribute | all t, t': Time | a.type.t = a.type.t'
+} check noTypeChange for 5
+
+// Driven values share type
+assert drivingTypeCheck {
+	all a, a': Attribute | all t: Time | a'.driven.t = a implies a.type.t = a'.type.t
+} check drivingTypeCheck for 5
+
+//No nodes share an ID
+assert noSharedIds {
+	all n, n': Node | all t: Time | (n.id.t = n'.id.t) implies n = n'
+} check noSharedIds for 5
+
 
 
