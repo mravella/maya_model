@@ -2,13 +2,11 @@ open util/ordering[Time]
 
 one sig Network {
 	nodes: set Node -> Time
-} {
-	all n: Node | all t: Time | n in nodes.t --All nodes are in the network.  This isn't right, but I don't really know what to do.
-}
+} 
 
 sig Time {}
 sig Node {
-	attributes: set Attribute,
+	attributes: set Attribute  -> Time,
 	id: Id one -> Time
 } {
 	some attributes  // #sigfact
@@ -33,33 +31,56 @@ one sig DefaultValue extends Value {}  //All nodes will start with DefaultValue
 
 //model connection as (node->attribute)->(node-)
 
-run {} 
+run {} for 3
+/*fact someNodeInNetwork { //delete this later
+	some disj n, n':Node | n+n' in Network.nodes.first
+}*/ //why doesn't this work
 
-//all x: Node.attributes.driving | 
 
 fact noSharedId {  --NEW
-	all n, n': Node | all t: Time | n.id.t = n'.id.t implies n = n'
+	all t: Time | all n, n': Network.nodes.t | n.id.t = n'.id.t implies n = n'
 }
 
 fact connectionsMatchTypes {
-	all t: Time | all a: Attribute | a.type.t = a.driven.t.type.t
+	all t: Time | all a: Attribute | some a.driven.t implies a.type.t = a.driven.t.type.t
 }
 
-fact invariants {
-	all a: Attribute | all t: Time | a.type.t = a.type.(t.next) || t = last // Attribute types can't change
+fact attributeTypesCantChange {
+	all a: Attribute | all t: Time | a.type.t = a.type.(t.next) || t = last 
 }
 
 fact drivingMatchesDriven {
 	all t: Time | all a, b: Attribute | a in b.driving.t iff b = a.driven.t 
 }
 
-pred init [t: Time] {
-	all a: Attribute {
-		a.value.t = DefaultValue
-		no a.driven.t
-		no a.driving.t
-	}
+//No attribute drives itself
+fact noAttributeDrivesItself {
+	all a, a': Attribute | all t: Time | a.driven.t = a' implies a != a'
 }
+
+fact attributesStayTheSame {
+	all t, t': Time | all n: Node | n.attributes.t = n.attributes.t'
+}
+
+//Attributes can only belong to one node
+fact oneNodePerAttribute {
+	all t: Time | all a: Attribute | some n: Node | a in n.attributes.t
+	all disj n, n': Node | all t: Time | no n.attributes.t & n'.attributes.t
+}
+
+//Attributes cant be driven and have default value
+fact noNodesDrivenAndDefault {
+	all t: Time | no a: Attribute | some a.driven.t and a.value.t = DefaultValue
+}
+
+//Node driving does what node driving should do
+fact driving {
+	all a, a': Attribute | all t: Time | a' in a.driving.t implies a'.value.t = a.value.t
+}
+
+fact nodesNotInNetworkAreSterile {
+	all t: Time | all n: Node | n not in Network.nodes.t implies no n.attributes.t.driven.t and no n.attributes.t.driving.t
+} //check nodesNotInNetworkAreSterile for 3
 
 /*
  * Preds:
@@ -70,21 +91,21 @@ pred init [t: Time] {
  * Rename
  */
 
-/*
+
 fact traces {
-	init [first]
 	all t: Time - last | let t' = t.next {
-		some n: Node, a: Attribute, a': Attribute, i: Id |
+		some n: Node, disj a, a': Attribute, i: Id |
 			makeConnection[t, t', a, a']
 			or breakConnection[t, t', a, a']
 			or deleteNode[t, t', n]
 			or createNode[t, t', n]
 			or rename[t, t', n, i]
 	}
-}*/
+}
 
 pred rename[t, t': Time, n: Node, i: Id] {
 	n.id.t' = i
+	n.id.t not = n.id.t'
 	noNodeIdChangeExcept[t, t', n]
 	noConnectionsChangeExcept[t, t', none]
 	noNodesCreatedExcept[t, t', none]
@@ -92,7 +113,7 @@ pred rename[t, t': Time, n: Node, i: Id] {
 }
 
 pred noNodeIdChangeExcept[t, t': Time, n: Node] {
-	all n1: Node-n | n1.id.t = n1.id.t'
+	all n': Network.nodes.t - n | n'.id.t = n'.id.t'
 }
 
 /*
@@ -105,7 +126,7 @@ pred noConnectionsChangeExcept[t, t': Time, a: set Attribute] {
 }
 
 pred noNodesCreatedExcept[t, t': Time, n: Node] {
-	Network.nodes.t = Network.nodes.t' ++ n
+	Network.nodes.t' = Network.nodes.t + n
 }
 
 pred noNodesDestroyedExcept[t, t': Time, n: Node] {
@@ -113,13 +134,14 @@ pred noNodesDestroyedExcept[t, t': Time, n: Node] {
 }
 
 pred createNode[t, t': Time, n: Node] {
-	Network.nodes.t' = Network.nodes.t ++ n
-	noNodesCreatedExcept[t, t', n]
+	n not in Network.nodes.t
+	Network.nodes.t' = Network.nodes.t + n
 	noConnectionsChangeExcept[t, t', none]
 	noNodeIdChangeExcept[t, t', none]
 }
 
 pred deleteNode[t, t': Time, n: Node] {
+	n in Network.nodes.t
 	Network.nodes.t' = Network.nodes.t - n
 	noNodesDestroyedExcept[t, t', n]
 	noConnectionsChangeExcept[t, t', none]
@@ -127,6 +149,8 @@ pred deleteNode[t, t': Time, n: Node] {
 }
 
 pred breakConnection[t, t': Time, a, a': Attribute] {
+	a' in a.driving.t
+	a in a'.driven.t
 	a.driving.t' = a.driving.t - a'
 	a'.driven.t' = none
 	a'.value.t' = DefaultValue
@@ -137,19 +161,20 @@ pred breakConnection[t, t': Time, a, a': Attribute] {
 }
 
 pred makeConnection[t, t': Time, a, a': Attribute] {
-	a.driving.t' = a.driving.t ++ a'
-	a'.driven.t'.driving.t' = a'.driven.t.driving.t - a'  --wow
+	a' not in a.driving.t
+	a not in a'.driven.t
+	a.driving.t' = a.driving.t + a'
+	a'.driven.t.driving.t' = a'.driven.t.driving.t - a'  --wow
 	a'.driven.t' = a
 	noNodesCreatedExcept[t, t', none]
 	noNodesDestroyedExcept[t, t', none]
 	noConnectionsChangeExcept[t, t', a + a']
 	noNodeIdChangeExcept[t, t', none]
 }
-	
 
 // Checks every Node has some attribute
 assert nonEmptyAttributes {
-	all n: Node | some a:Attribute | a in n.attributes
+	all t: Time | all n: Node | some a:Attribute | a in n.attributes.t
 } check nonEmptyAttributes for 5 
 
 // Checks that types of attributes don't change over time
@@ -167,5 +192,26 @@ assert noSharedIds {
 	all n, n': Node | all t: Time | (n.id.t = n'.id.t) implies n = n'
 } check noSharedIds for 5
 
+//Attributes only belong to one node
+assert oneNodePerAttribute {
+	all t: Time | all disj n, n': Node | no a: Attribute | a in n.attributes.t and a in n'.attributes.t
+} check oneNodePerAttribute for 2  --Oh wow!  Much flaw.
 
+//Nodes attribute sets don't change
+assert attributesDontChangeOverTime {
+	all t, t': Time | all n: Node | n.attributes.t = n.attributes.t'
+} check attributesDontChangeOverTime for 2
 
+//Nodes cant be driven by another node and have the default value
+assert nodesCantBeDefaultValueAndDriven {
+	all a: Attribute | all t: Time | some a.driven.t implies a.value.t != DefaultValue
+} check nodesCantBeDefaultValueAndDriven for 5
+
+//Driving nodes actually drives nodes
+assert drivenHasSameValueAsDriving {
+	all t: Time | all a, a': Attribute | a.driven.t = a' implies a.value.t = a'.value.t
+} check drivenHasSameValueAsDriving for 3
+
+assert nodesNeedNotBeDriving { //problem b/c everything seems to need to be driven/driving
+	all t: Time | all a: Attribute | some a.driving.t or some a.driven.t
+} check nodesNeedNotBeDriving for 3
