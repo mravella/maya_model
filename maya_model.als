@@ -172,10 +172,28 @@ pred makeConnection[t, t': Time, a, a': Attribute] {
 	noNodeIdChangeExcept[t, t', none]
 }
 
+pred networkInvariance[t,t': Time]{ //nothing changes in the network. used for changes to buffer
+	noNodesCreatedExcept[t, t', none]
+	noNodesDestroyedExcept[t, t', none]
+	noConnectionsChangeExcept[t, t', none]
+	noNodeIdChangeExcept[t, t', none]
+}
 
 //UI Preds
 pred UIDelete[t, t': Time]{ //deletes whatever you have selected
 	deleteNode[t, t', Buffer.selection.t]
+}
+
+pred UIOverwriteSelection[t, t': Time, n: set Node]{
+	Buffer.selection.t' = n
+	networkInvariance[t, t']
+	//nothing changes but buffer
+}
+
+pred UIToggleSelection[t, t': Time, n: set Node]{
+	all node in n | node in Buffer.selection.t implies node not in Buffer.selection.t' and
+						node not in Buffer.selection.t implies node in Buffer.selection.t'
+	networkInvariance[t, t']
 }
 
 
