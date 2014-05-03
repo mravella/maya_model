@@ -97,11 +97,16 @@ fact traces {
 		some n: Node, disj a, a': Attribute, i: Id |
 			makeConnection[t, t', a, a']
 			or breakConnection[t, t', a, a']
-			or deleteNode[t, t', n]
+			//or deleteNode[t, t', n]
 			or createNode[t, t', n]
 			or rename[t, t', n, i]
+			or UIDelete[t,t']
+			or UIOverwriteSelection[t, t', n] //how to let it do this on a set?
+			or UIToggleSelection[t,t',n]
 	}
 }
+
+
 
 pred rename[t, t': Time, n: Node, i: Id] {
 	n.id.t' = i
@@ -180,7 +185,7 @@ pred networkInvariance[t,t': Time]{ //nothing changes in the network. used for c
 }
 
 //UI Preds
-pred UIDelete[t, t': Time]{ //deletes whatever you have selected
+pred UIDelete[t, t': Time]{ //deletes whatever you have selected using previous pred
 	deleteNode[t, t', Buffer.selection.t]
 }
 
@@ -191,10 +196,11 @@ pred UIOverwriteSelection[t, t': Time, n: set Node]{
 }
 
 pred UIToggleSelection[t, t': Time, n: set Node]{
-	all node in n | node in Buffer.selection.t implies node not in Buffer.selection.t' and
+	all node: n | node in Buffer.selection.t implies node not in Buffer.selection.t' and
 						node not in Buffer.selection.t implies node in Buffer.selection.t'
 	networkInvariance[t, t']
 }
+//middle mouse clicking unnecessary b/c already have makeConnection and can only do one at a time
 
 
 
