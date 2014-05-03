@@ -125,11 +125,11 @@ pred noConnectionsChangeExcept[t, t': Time, a: set Attribute] {
 		b.driving.t = b.driving.t'
 }
 
-pred noNodesCreatedExcept[t, t': Time, n: Node] {
+pred noNodesCreatedExcept[t, t': Time, n: Node] { //can only create one at a time
 	Network.nodes.t' = Network.nodes.t + n
 }
 
-pred noNodesDestroyedExcept[t, t': Time, n: Node] {
+pred noNodesDestroyedExcept[t, t': Time, n: set Node] { //can delete multiple at time=>set Node
 	Network.nodes.t' = Network.nodes.t - n
 }
 
@@ -140,7 +140,7 @@ pred createNode[t, t': Time, n: Node] {
 	noNodeIdChangeExcept[t, t', none]
 }
 
-pred deleteNode[t, t': Time, n: Node] {
+pred deleteNode[t, t': Time, n: set Node] {
 	n in Network.nodes.t
 	Network.nodes.t' = Network.nodes.t - n
 	noNodesDestroyedExcept[t, t', n]
@@ -171,6 +171,14 @@ pred makeConnection[t, t': Time, a, a': Attribute] {
 	noConnectionsChangeExcept[t, t', a + a']
 	noNodeIdChangeExcept[t, t', none]
 }
+
+
+//UI Preds
+pred UIDelete[t, t': Time]{ //deletes whatever you have selected
+	deleteNode[t, t', Buffer.selection.t]
+}
+
+
 
 // Checks every Node has some attribute
 assert nonEmptyAttributes {
