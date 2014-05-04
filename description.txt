@@ -1,0 +1,9 @@
+Design Choices:
+
+One of the more significant design decisions we had to make was how to model nodes' attributes. They "belong" to nodes like ID's do, but they have behaviors of their own that 
+
+This made enforcing that each attribute have exactly one node more roundabout since attributes don't know about their node, whereas if they did it would be easy to write a field like "belongsTo: one Node" and utilize the multiplicity keyword.
+
+
+Some facts we discovered that we needed during the modelling process were due to the concept of the Network of currently used nodes that we did not sufficiently consider during planning. The Network sig holds all the nodes that are currently active (as in would show up on screen were you using Maya). Originally we wrote a sig fact that it should contain all the nodes, but we hard to rework our thinking of it because Alloy is not dynamic and when we "create" nodes between timesteps we are not adding new sigs to the instance. We realized this would mean that nodes would need to exist outside the network so that we could create, ie add them to it.
+
