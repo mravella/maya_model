@@ -73,7 +73,7 @@ fact noNodesDrivenAndDefault {
 	all t: Time | no a: Attribute | some a.driven.t and a.value.t = DefaultValue
 }
 
-//Node driving does what node driving should do
+//Enforces that node driving causes a change to values
 fact driving {
 	all a, a': Attribute | all t: Time | a' in a.driving.t implies a'.value.t = a.value.t
 }
