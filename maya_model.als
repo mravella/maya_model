@@ -118,14 +118,14 @@ fact traces { //Each time step must take one of these actions
 
 /*
  * Preds:
- * MakeConnection
- * BreakConnection
- * DeleteNode 
- * CreateNode
  * Rename
- * UIDelete
+ * CreateNode
+ * DeleteNode 
+ * BreakConnection
+ * MakeConnection
  * UIOverwriteSelection
  * UIToggleSelection
+ * UIDelete
  */
 
 //Changes a node's ID
@@ -217,7 +217,6 @@ pred UIDelete[t, t': Time]{ //deletes whatever you have selected using selection
 /*
 Invariants section
 */
-
 //No nodes except the specified change ID
 pred noNodeIdChangeExcept[t, t': Time, n: Node] {
 	all n': Network.nodes.t - n | n'.id.t = n'.id.t'
@@ -300,8 +299,8 @@ assert drivenHasSameValueAsDriving {
 	all t: Time | all a, a': Attribute | a.driven.t = a' implies a.value.t = a'.value.t
 } check drivenHasSameValueAsDriving for 3
 
-//Nodes don't have the drive something
-assert nodesNeedNotBeDriving { //problem b/c everything seems to need to be driven/driving
+//Make sure nodes don't have the drive something b/c they were in all our instances
+assert nodesNeedNotBeDriving { 
 	all t: Time | all a: Attribute | some a.driving.t or some a.driven.t
 } check nodesNeedNotBeDriving for 3
 
@@ -325,7 +324,7 @@ assert deletionCausesDefaultValue {
 	all t: Time | UIDelete[t, t.next] implies Buffer.selection.t.driving.t.value.(t.next) = DefaultValue
 } check deletionCausesDefaultValue for 5
 
+//Attributes are never driven by a default value
 assert noDefaultDriver {
-	all t, t': Time | all a, a' :Attribute | makeConnection[t,t',a,a'] => a.value.t !=DefaultValue
-//not (a.value.t = DefaultValue and makeConnection[t,t',a,a']) //2 ways to say same thing
+	all t, t': Time | all a, a' :Attribute | not a.value.t = DefaultValue and makeConnection[t,t',a,a']
 } check noDefaultDriver
