@@ -2,47 +2,57 @@ open util/ordering[Time]
 
 run {} for 3 but 10 Time
 
+//Network sig.  Holds all nodes in the current network
 one sig Network {
 	nodes: set Node -> Time
 } 
 
-sig Time {}
+//Node sig has its own (nonempty) set of attributes and a unique ID
 sig Node {
 	attributes: set Attribute  -> Time,
 	id: Id one -> Time
 } {
 	some attributes 
 }
+
+//Buffer represents the current UI selection of Nodes
 one sig Buffer {
 	selection: set Node -> Time
 }
-sig Id {}
-abstract sig Type {}
-sig Float extends Type{}
-sig Vector extends Type{}
-sig Strng extends Type{}
 
+//Attributes are the elements of nodes that have values, and can be driven or drive other attributes of the same type
 sig Attribute {
 	type:  Type one -> Time,
 	value:  Value one -> Time,
 	driving: set Attribute -> Time,
 	driven:  Attribute lone -> Time
 }
-sig Value {}
-one sig DefaultValue extends Value {}  //All nodes will start with DefaultValue
 
+sig Time {}
+sig Id {}
+abstract sig Type {}
+sig Float extends Type{}
+sig Vector extends Type{}
+sig Strng extends Type{}
+sig Value {}
+one sig DefaultValue extends Value {}  
+
+//IDs must be unique
 fact noSharedId {  
 	all t: Time | all n, n': Node | n.id.t = n'.id.t implies n = n'
 }
 
+//Connections can only be formed between attributes of the same type
 fact connectionsMatchTypes {
 	all t: Time | all a: Attribute | some a.driven.t implies a.type.t = a.driven.t.type.t
 }
 
+//Attributes can never change types
 fact attributeTypesCantChange {
 	all a: Attribute | all t: Time | a.type.t = a.type.(t.next) || t = last 
 }
 
+//If a is driven by b, then b must drive a
 fact drivingMatchesDriven {
 	all t: Time | all a, b: Attribute | a in b.driving.t iff b = a.driven.t 
 }
@@ -52,6 +62,7 @@ fact noAttributeDrivesItself {
 	all a, a': Attribute | all t: Time | a.driven.t = a' implies a != a'
 }
 
+//Nodes always have the same set of attributes
 fact attributesStayTheSame {
 	all t, t': Time | all n: Node | n.attributes.t = n.attributes.t'
 }
@@ -72,9 +83,10 @@ fact driving {
 	all a, a': Attribute | all t: Time | a' in a.driving.t implies a'.value.t = a.value.t
 }
 
+//Nodes not in the network can't be driven or drive anything
 fact nodesNotInNetworkAreSterile {
 	all t: Time | all n: Node | n not in Network.nodes.t implies no n.attributes.t.driven.t and no n.attributes.t.driving.t
-} //check nodesNotInNetworkAreSterile for 3
+} 
 
 //Buffer initializes to empty
 fact bufferInitiallyEmpty {
@@ -111,7 +123,12 @@ fact traces { //Each time step must take one of these actions
  * DeleteNode 
  * CreateNode
  * Rename
+ * UIDelete
+ * UIOverwriteSelection
+ * UIToggleSelection
  */
+
+//Changes a node's ID
 pred rename[t, t': Time, n: set Node, i: Id] {
 	#n = 1 //so that you can only rename one node at once
 	n.id.t' = i
@@ -122,6 +139,7 @@ pred rename[t, t': Time, n: set Node, i: Id] {
 	noNodesDestroyedExcept[t, t', none]
 }
 
+//Adds a new node to the network
 pred createNode[t, t': Time, n: set Node] {
 	#n = 1
 	n not in Network.nodes.t
@@ -132,6 +150,7 @@ pred createNode[t, t': Time, n: set Node] {
 	noBufferChange[t, t']
 }
 
+//Removes a node from the network, and deletes all of its connections
 pred deleteNode[t, t': Time, n: set Node] {
 	Network.nodes.t' = Network.nodes.t - n
 	all v: n.attributes.t.driving.t.value.t' | v = DefaultValue
@@ -141,6 +160,7 @@ pred deleteNode[t, t': Time, n: set Node] {
 	noValueChangeExcept[t, t', n.attributes.t + n.attributes.t.driving.t]
 }
 
+//Deletes a connection
 pred breakConnection[t, t': Time, a, a': Attribute] {
 	a' in a.driving.t
 	a in a'.driven.t
@@ -155,6 +175,7 @@ pred breakConnection[t, t': Time, a, a': Attribute] {
 	noBufferChange[t, t']
 }
 
+//Adds a connection
 pred makeConnection[t, t': Time, a, a': Attribute] {
 	a' not in a.driving.t
 	a not in a'.driven.t
@@ -169,13 +190,16 @@ pred makeConnection[t, t': Time, a, a': Attribute] {
 	noBufferChange[t, t']
 }
 
-//UI Preds
+//Models a left click.  Replaces old buffer with new selection
 pred UIOverwriteSelection[t, t': Time, n: set Node]{ //replaces old buffer with new selection
 	Buffer.selection.t' != Buffer.selection.t
 	Buffer.selection.t' = n
 	networkInvariance[t, t']	//nothing changes but buffer
 }
 
+//Models a shift click.  Nodes selected that weren't in previous buffer are added
+//Nodes selected that were in previously buffer are removed
+//Nodes that were in previous buffer, but were not selected remain in the buffer
 pred UIToggleSelection[t, t': Time, n: set Node]{//toggles selected nodes
 	Buffer.selection.t' != Buffer.selection.t
 	all node: n | node in Buffer.selection.t implies node not in Buffer.selection.t' and
@@ -183,6 +207,7 @@ pred UIToggleSelection[t, t': Time, n: set Node]{//toggles selected nodes
 	networkInvariance[t, t']
 }
 
+//Deletes the nodes in the buffer from the UI and clears the buffer
 pred UIDelete[t, t': Time]{ //deletes whatever you have selected using selection preds
 	some Buffer.selection.t
 	deleteNode[t, t', Buffer.selection.t]
@@ -192,10 +217,13 @@ pred UIDelete[t, t': Time]{ //deletes whatever you have selected using selection
 /*
 Invariants section
 */
+
+//No nodes except the specified change ID
 pred noNodeIdChangeExcept[t, t': Time, n: Node] {
 	all n': Network.nodes.t - n | n'.id.t = n'.id.t'
 }
 
+//Connections can't change between steps
 //takes in a set so we can include both attributes
 pred noConnectionsChangeExcept[t, t': Time, a: set Attribute] {
 	all b: Attribute - a | 
@@ -203,14 +231,17 @@ pred noConnectionsChangeExcept[t, t': Time, a: set Attribute] {
 		b.driving.t = b.driving.t'
 }
 
+//Nodes cant be added to the network
 pred noNodesCreatedExcept[t, t': Time, n: Node] { //can only create one at a time
 	Network.nodes.t' = Network.nodes.t + n
 }
 
+//Nodes aren't randomly removed from network
 pred noNodesDestroyedExcept[t, t': Time, n: set Node] { //can delete multiple at time=>set Node
 	Network.nodes.t' = Network.nodes.t - n
 }
 
+//Nodes keep the same value between timestep
 pred noValueChangeExcept[t, t': Time, a: set Attribute] {
 	all b: Attribute - a | b.value.t = b.value.t' 
 }
@@ -269,6 +300,7 @@ assert drivenHasSameValueAsDriving {
 	all t: Time | all a, a': Attribute | a.driven.t = a' implies a.value.t = a'.value.t
 } check drivenHasSameValueAsDriving for 3
 
+//Nodes don't have the drive something
 assert nodesNeedNotBeDriving { //problem b/c everything seems to need to be driven/driving
 	all t: Time | all a: Attribute | some a.driving.t or some a.driven.t
 } check nodesNeedNotBeDriving for 3
@@ -283,10 +315,12 @@ assert bufferCanHazMoreThanOneNode {
 	all t: Time | #Buffer.selection.t <= 1
 } check bufferCanHazMoreThanOneNode for 5
 
+//Make sure the buffer is empty after a delete operation
 assert bufferEmptyAfterDelete {
 	all t: Time | UIDelete[t, t.next] implies no Buffer.selection.(t.next)
 } check bufferEmptyAfterDelete for 5
 
+//Make sure the nodes driven by the deleted node now have the default value
 assert deletionCausesDefaultValue {
 	all t: Time | UIDelete[t, t.next] implies Buffer.selection.t.driving.t.value.(t.next) = DefaultValue
 } check deletionCausesDefaultValue for 5
