@@ -1,6 +1,6 @@
 open util/ordering[Time]
 
-run {} for 3 but 2 Time
+run {} for 3 but 10 Time
 
 one sig Network {
 	nodes: set Node -> Time
@@ -11,7 +11,7 @@ sig Node {
 	attributes: set Attribute  -> Time,
 	id: Id one -> Time
 } {
-	some attributes  // #sigfact
+	some attributes 
 }
 one sig Buffer {
 	selection: set Node -> Time
@@ -31,7 +31,7 @@ sig Attribute {
 sig Value {}
 one sig DefaultValue extends Value {}  //All nodes will start with DefaultValue
 
-fact noSharedId {  --NEW
+fact noSharedId {  
 	all t: Time | all n, n': Node | n.id.t = n'.id.t implies n = n'
 }
 
@@ -78,7 +78,7 @@ fact nodesNotInNetworkAreSterile {
 
 //Buffer initializes to empty
 fact bufferInitiallyEmpty {
-	//no Buffer.selection.first
+	no Buffer.selection.first
 } 
 
 //Buffer can only select nodes on screen
@@ -91,6 +91,19 @@ fact cyclicAttributesLocks {
 	all t: Time | all a: Attribute | a in a.^(driving.t) implies a.value.t = a.value.(t.next)
 }  
 
+fact traces { //Each time step must take one of these actions
+	all t: Time - last | let t' = t.next {
+		some n: set Node, disj a, a': Attribute, i: Id |
+			makeConnection[t, t', a, a']
+		    or breakConnection[t, t', a, a']
+			or createNode[t, t', n]
+			or rename[t, t', n, i]
+			or UIDelete[t,t']
+			or UIOverwriteSelection[t, t', n]
+			or UIToggleSelection[t,t',n]
+	}
+}
+
 /*
  * Preds:
  * MakeConnection
@@ -99,59 +112,14 @@ fact cyclicAttributesLocks {
  * CreateNode
  * Rename
  */
-
-
-fact traces {
-	all t: Time - last | let t' = t.next {
-		//some n: set Node, disj a, a': Attribute, i: Id |
-		//some n: set Node |
-			//makeConnection[t, t', a, a']
-		    //or breakConnection[t, t', a, a']
-			//or createNode[t, t', n]
-			//or rename[t, t', n, i]
-			UIDelete[t,t']
-			//or UIOverwriteSelection[t, t', n]
-			//or UIToggleSelection[t,t',n]
-	}
-}
-
 pred rename[t, t': Time, n: set Node, i: Id] {
-	#n = 1
+	#n = 1 //so that you can only rename one node at once
 	n.id.t' = i
 	n.id.t not = n.id.t'
 	noNodeIdChangeExcept[t, t', n]
 	noConnectionsChangeExcept[t, t', none]
 	noNodesCreatedExcept[t, t', none]
 	noNodesDestroyedExcept[t, t', none]
-}
-
-pred noNodeIdChangeExcept[t, t': Time, n: Node] {
-	all n': Network.nodes.t - n | n'.id.t = n'.id.t'
-}
-
-/*
-Changed this to take in a set so we can include both attributes
-*/
-pred noConnectionsChangeExcept[t, t': Time, a: set Attribute] {
-	all b: Attribute - a | 
-		b.driven.t = b.driven.t' and
-		b.driving.t = b.driving.t'
-}
-
-pred noNodesCreatedExcept[t, t': Time, n: Node] { //can only create one at a time
-	Network.nodes.t' = Network.nodes.t + n
-}
-
-pred noNodesDestroyedExcept[t, t': Time, n: set Node] { //can delete multiple at time=>set Node
-	Network.nodes.t' = Network.nodes.t - n
-}
-
-pred noValueChangeExcept[t, t': Time, a: set Attribute] {
-	all b: Attribute - a | b.value.t = b.value.t' 
-}
-
-pred noBufferChange[t, t': Time] {
-	Buffer.selection.t = Buffer.selection.t'
 }
 
 pred createNode[t, t': Time, n: set Node] {
@@ -201,7 +169,54 @@ pred makeConnection[t, t': Time, a, a': Attribute] {
 	noBufferChange[t, t']
 }
 
-pred networkInvariance[t,t': Time]{ //nothing changes in the network. used for changes to buffer
+//UI Preds
+pred UIOverwriteSelection[t, t': Time, n: set Node]{ //replaces old buffer with new selection
+	Buffer.selection.t' != Buffer.selection.t
+	Buffer.selection.t' = n
+	networkInvariance[t, t']	//nothing changes but buffer
+}
+
+pred UIToggleSelection[t, t': Time, n: set Node]{//toggles selected nodes
+	Buffer.selection.t' != Buffer.selection.t
+	all node: n | node in Buffer.selection.t implies node not in Buffer.selection.t' and
+						node not in Buffer.selection.t implies node in Buffer.selection.t'
+	networkInvariance[t, t']
+}
+
+pred UIDelete[t, t': Time]{ //deletes whatever you have selected using selection preds
+	some Buffer.selection.t
+	deleteNode[t, t', Buffer.selection.t]
+	no Buffer.selection.t'
+}
+
+/*
+Invariants section
+*/
+pred noNodeIdChangeExcept[t, t': Time, n: Node] {
+	all n': Network.nodes.t - n | n'.id.t = n'.id.t'
+}
+
+//takes in a set so we can include both attributes
+pred noConnectionsChangeExcept[t, t': Time, a: set Attribute] {
+	all b: Attribute - a | 
+		b.driven.t = b.driven.t' and
+		b.driving.t = b.driving.t'
+}
+
+pred noNodesCreatedExcept[t, t': Time, n: Node] { //can only create one at a time
+	Network.nodes.t' = Network.nodes.t + n
+}
+
+pred noNodesDestroyedExcept[t, t': Time, n: set Node] { //can delete multiple at time=>set Node
+	Network.nodes.t' = Network.nodes.t - n
+}
+
+pred noValueChangeExcept[t, t': Time, a: set Attribute] {
+	all b: Attribute - a | b.value.t = b.value.t' 
+}
+
+//nothing changes in the network. used for changes to buffer
+pred networkInvariance[t,t': Time]{ 
 	noNodesCreatedExcept[t, t', none]
 	noNodesDestroyedExcept[t, t', none]
 	noConnectionsChangeExcept[t, t', none]
@@ -209,27 +224,10 @@ pred networkInvariance[t,t': Time]{ //nothing changes in the network. used for c
 	noValueChangeExcept[t, t', none]
 }
 
-//UI Preds
-pred UIDelete[t, t': Time]{ //deletes whatever you have selected using previous pred
-	some Buffer.selection.t
-	deleteNode[t, t', Buffer.selection.t]
-	no Buffer.selection.t'
+//used for network changes on attributes and node creation
+pred noBufferChange[t, t': Time] { 
+	Buffer.selection.t = Buffer.selection.t'
 }
-
-pred UIOverwriteSelection[t, t': Time, n: set Node]{
-	Buffer.selection.t' != Buffer.selection.t
-	Buffer.selection.t' = n
-	networkInvariance[t, t']
-	//nothing changes but buffer
-}
-
-pred UIToggleSelection[t, t': Time, n: set Node]{
-	Buffer.selection.t' != Buffer.selection.t
-	all node: n | node in Buffer.selection.t implies node not in Buffer.selection.t' and
-						node not in Buffer.selection.t implies node in Buffer.selection.t'
-	networkInvariance[t, t']
-}
-//middle mouse clicking unnecessary b/c already have makeConnection and can only do one at a time
 
 // Checks every Node has some attribute
 assert nonEmptyAttributes {
@@ -292,3 +290,8 @@ assert bufferEmptyAfterDelete {
 assert deletionCausesDefaultValue {
 	all t: Time | UIDelete[t, t.next] implies Buffer.selection.t.driving.t.value.(t.next) = DefaultValue
 } check deletionCausesDefaultValue for 5
+
+assert noDefaultDriver {
+	all t, t': Time | all a, a' :Attribute | makeConnection[t,t',a,a'] => a.value.t !=DefaultValue
+//not (a.value.t = DefaultValue and makeConnection[t,t',a,a']) //2 ways to say same thing
+} check noDefaultDriver
