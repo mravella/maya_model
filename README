@@ -1,0 +1,17 @@
+Design Choices:
+
+One of the more significant design decisions we had to make was how to model nodes' attributes. They "belong" to nodes like ID's do, but they have behaviors of their own relating to nodes so it would be useful to be able to access the nodes from their sig. 
+We decided to have attributes be a field of node but not the other way around since if we put it in both we would have to spend a lot of time making sure they matched up.
+
+This made enforcing that each attribute have exactly one node more roundabout since attributes don't know about their node, whereas if they did it would be easy to write a field like "belongsTo: one Node" and utilize the multiplicity keyword.
+
+We also made attributes responsible for what they drive and are driven by even though when using Maya it might intuitively seem that this should be the responsibility of a node because attributes are responsible for their individual values which is all "driving" changes. Additionally multiple attributes can belong to the same node and drive each other so it would not make sense to keep track of that using nodes.
+
+We did decide to have attributes keep track of what they were driven by as well as what was driving them even though this meant extra bookkeeping. The driven field was very important because each attribute has at most one (which was easiest modelled using the lone keyword in the sig declaration) and it was important for each node to know whether it was being driven or not. 
+
+Some facts we discovered that we needed during the modelling process were due to the concept of the Network of currently used nodes that we did not sufficiently consider during planning. The Network sig holds all the nodes that are currently active (as in would show up on screen were you using Maya). Originally we wrote a sig fact that it should contain all the nodes, but we hard to rework our thinking of it because Alloy is not dynamic and when we "create" nodes between timesteps we are not adding new sigs to the instance. We realized this would mean that nodes would need to exist outside the network so that we could create, ie add them to it.
+
+Notes: 
+In our testing we found the magic layout projected over time to be the most useful tool. 
+A lot of the instances were nodes being repeatedly added and removed from the buffer so it might be useful to alter the trace in order to test other actions.
+
