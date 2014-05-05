@@ -2,4 +2,41 @@ Michael Ravella (mravella)
 Ardra Hren (ahren)
 
 
-***Insert stuff from proposal, minus the stuff about vectors being driven by multiple attributes***
+A shading network is a set of nodes with attributes. Each node's attributes can be "driven" by another node's attributes, and that's what a connection defines. Below are some of the basic constraints of our final model.
+
+
+SHADING NETWORKS
+
+
+User Interaction:
+
+Set of currently selected objects
+Left Click Selection - Overwrites old selection
+Left Click + Shift Selection - Toggles selection and appends to set
+Middle Mouse Dragging - Creates connections
+Delete - Deletes everything in the buffer, and if it's a node, all connections to and from that node.
+Name Change - Can change unique ID, but not to any other nodes' unique ID.
+
+
+
+Connections:
+
+Connect (Attribute->Time) to (Attribute->Time)
+Attributes must be of the same type.
+Types: Float, Vector, String (Vectors are 3 floats)
+Allowed to cycle.
+Attribute cycles cause deadlock, ie values cannot change.
+All attributes in this cycle have same value.
+Deleting a connection restores the driven attribute to default value.
+One attribute can drive many different attributes.
+Each attribute can be driven by at most one other attribute.
+New connections override old connections.
+
+
+Attributes:
+
+Attributes can be driven by other attributes.
+Same node can drive its own attribute.
+
+Nodes:
+Every node has unique ID.

@@ -83,6 +83,12 @@ fact driving {
 	all a, a': Attribute | all t: Time | a' in a.driving.t implies a'.value.t = a.value.t
 }
 
+//If there is a driving cycle none of those attributes can change values
+fact cyclicAttributesLocks {
+	all t: Time | all a: Attribute |  a in a.^(driving.t)
+		implies a.value.t = a.value.(t.next)
+}
+
 //Nodes not in the network can't be driven or drive anything
 fact nodesNotInNetworkAreSterile {
 	all t: Time | all n: Node | n not in Network.nodes.t implies no n.attributes.t.driven.t and no n.attributes.t.driving.t
@@ -98,11 +104,7 @@ fact bufferInNetwork {
 	all t: Time | Buffer.selection.t in Network.nodes.t
 }
 
-//Cycles cause all nodes in cycle to have same value
-fact cyclicAttributesLocks {
-	all t: Time | all a: Attribute | let aDriver = a.driven.t |  a in a.^(driving.t) or aDriver in aDriver.^(driving.t)
-		implies a.value.t = a.value.(t.next)
-}  
+
 
 fact traces { //Each time step must take one of these actions
 	all t: Time - last | let t' = t.next {
@@ -332,14 +334,7 @@ assert noDefaultDriver {
 
 //if an attribute is driven by a locked attribute, it too is locked
 assert childrenOfCyclesLock{
-	all t: Time | all a: Attribute | let aDriver = a.driven.t | aDriver in aDriver.^(driving.t)
-	//	let aDriver = a.driven.t |  a in a.^(driving.t) or aDriver in aDriver.^(driving.t)
+	all t: Time | all a: Attribute | //driven by some locked node means it keeps its value
+		some a.driven.t and a.driven.t = a.driven.(t.next) and a.driven.t in a.driven.t.^(driving.t)
 		implies a.value.t = a.value.(t.next)
 } check childrenOfCyclesLock 
-//not entirely sure why this gives a counterexample, needs to be thought about some more
-
-
-
-
-
-
