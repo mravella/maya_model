@@ -1,6 +1,6 @@
 open util/ordering[Time]
 
-run {} for 3 but 10 Time
+run {} for 3 but 20 Time
 
 //Network sig.  Holds all nodes in the current network
 one sig Network {
@@ -100,7 +100,8 @@ fact bufferInNetwork {
 
 //Cycles cause all nodes in cycle to have same value
 fact cyclicAttributesLocks {
-	all t: Time | all a: Attribute | a in a.^(driving.t) implies a.value.t = a.value.(t.next)
+	all t: Time | all a: Attribute | let aDriver = a.driven.t |  a in a.^(driving.t) or aDriver in aDriver.^(driving.t)
+		implies a.value.t = a.value.(t.next)
 }  
 
 fact traces { //Each time step must take one of these actions
@@ -328,3 +329,17 @@ assert deletionCausesDefaultValue {
 assert noDefaultDriver {
 	all t, t': Time | all a, a' :Attribute | not a.value.t = DefaultValue and makeConnection[t,t',a,a']
 } check noDefaultDriver
+
+//if an attribute is driven by a locked attribute, it too is locked
+assert childrenOfCyclesLock{
+	all t: Time | all a: Attribute | let aDriver = a.driven.t | aDriver in aDriver.^(driving.t)
+	//	let aDriver = a.driven.t |  a in a.^(driving.t) or aDriver in aDriver.^(driving.t)
+		implies a.value.t = a.value.(t.next)
+} check childrenOfCyclesLock 
+//not entirely sure why this gives a counterexample, needs to be thought about some more
+
+
+
+
+
+
