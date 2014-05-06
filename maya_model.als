@@ -222,7 +222,7 @@ Invariants section
 */
 //No nodes except the specified change ID
 pred noNodeIdChangeExcept[t, t': Time, n: Node] {
-	all n': Network.nodes.t - n | n'.id.t = n'.id.t'
+	all n': Node - n | n'.id.t = n'.id.t'
 }
 
 //Connections can't change between steps
